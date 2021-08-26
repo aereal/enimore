@@ -55,7 +55,13 @@ func (p *ENIPopulator) Result() *Result {
 
 func (p *ENIPopulator) PopulateWithSecurityGroups(ctx context.Context, securityGroupIds []string, sg2resource map[string]string) error {
 	client := p.client
-	out, err := client.DescribeNetworkInterfaces(ctx, &ec2.DescribeNetworkInterfacesInput{Filters: []types.Filter{{Name: aws.String("group-id"), Values: securityGroupIds}}})
+	input := &ec2.DescribeNetworkInterfacesInput{
+		Filters: []types.Filter{
+			{Name: aws.String("group-id"), Values: securityGroupIds},
+			{Name: aws.String("attachment.status"), Values: []string{"attached"}},
+		},
+	}
+	out, err := client.DescribeNetworkInterfaces(ctx, input)
 	if err != nil {
 		return fmt.Errorf("ec2.DescribeNetworkInterfaces: %w", err)
 	}

@@ -10,8 +10,13 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/ec2/types"
 )
 
+type NetworkInterface struct {
+	NetworkInterfaceID string
+	AvailabilityZone   string `json:",omitempty"`
+}
+
 type ResultFragment struct {
-	NetworkInterfaces []string
+	NetworkInterfaces []NetworkInterface
 }
 
 type Result struct {
@@ -20,14 +25,14 @@ type Result struct {
 	Results map[string]ResultFragment
 }
 
-func (r *Result) Add(key string, enis []string) {
+func (r *Result) add(key string, eni types.NetworkInterface) {
 	r.Lock()
 	defer r.Unlock()
 	if r.Results == nil {
 		r.Results = map[string]ResultFragment{}
 	}
 	f := ResultFragment{}
-	f.NetworkInterfaces = append(r.Results[key].NetworkInterfaces, enis...)
+	f.NetworkInterfaces = append(r.Results[key].NetworkInterfaces, NetworkInterface{NetworkInterfaceID: *eni.NetworkInterfaceId, AvailabilityZone: *eni.AvailabilityZone})
 	r.Results[key] = f
 }
 
@@ -63,7 +68,7 @@ func (p *ENIPopulator) PopulateWithSecurityGroups(ctx context.Context, securityG
 			if resource == "" {
 				continue
 			}
-			p.res.Add(resource, []string{*x.NetworkInterfaceId})
+			p.res.add(resource, x)
 		}
 	}
 	return nil

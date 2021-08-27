@@ -35,6 +35,9 @@ type LambdaFunctionAccumulator struct {
 var _ Accumulator = &LambdaFunctionAccumulator{}
 
 func (a *LambdaFunctionAccumulator) Accumulate(ctx context.Context, populator *enipopulator.ENIPopulator) error {
+	if len(a.arns) == 0 {
+		return nil
+	}
 	// fnARN -> isUnseen
 	unseen := map[string]bool{}
 	for _, fn := range a.arns {

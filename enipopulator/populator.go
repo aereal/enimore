@@ -85,6 +85,10 @@ type SecurityGroupAssociation struct {
 	sgID2Resource map[string]arn.ARN
 }
 
+func (a *SecurityGroupAssociation) HasAny() bool {
+	return len(a.sgID2Resource) > 0
+}
+
 func (a *SecurityGroupAssociation) Add(resource arn.ARN, securityGroupIDs ...string) {
 	if a.sgID2Resource == nil {
 		a.sgID2Resource = map[string]arn.ARN{}

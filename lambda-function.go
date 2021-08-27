@@ -69,8 +69,10 @@ func (a *LambdaFunctionAccumulator) Accumulate(ctx context.Context, populator *e
 		}
 		input.Marker = out.NextMarker
 	}
-	if err := populator.PopulateWithSecurityGroups(ctx, association); err != nil {
-		return err
+	if association.HasAny() {
+		if err := populator.PopulateWithSecurityGroups(ctx, association); err != nil {
+			return err
+		}
 	}
 	return nil
 }

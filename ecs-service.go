@@ -77,18 +77,18 @@ func (a *ECSServiceAccumulator) Accumulate(ctx context.Context, populator *enipo
 			if err != nil {
 				return fmt.Errorf("failed to describe service: %w", err)
 			}
-			var sgs []string
-			sg2Service := map[string]string{}
+			association := &enipopulator.SecurityGroupAssociation{}
 			for _, svc := range out.Services {
 				if svc.NetworkConfiguration == nil {
 					continue
 				}
-				sgs = append(sgs, svc.NetworkConfiguration.AwsvpcConfiguration.SecurityGroups...)
-				for _, sg := range sgs {
-					sg2Service[sg] = *svc.ServiceArn
+				svcARN, err := arnparser.Parse(*svc.ServiceArn)
+				if err != nil {
+					return fmt.Errorf("[BUG] invalid ARN: %w", err)
 				}
+				association.Add(svcARN, svc.NetworkConfiguration.AwsvpcConfiguration.SecurityGroups...)
 			}
-			if err := populator.PopulateWithSecurityGroups(ctx, sgs, sg2Service); err != nil {
+			if err := populator.PopulateWithSecurityGroups(ctx, association); err != nil {
 				return err
 			}
 			return nil

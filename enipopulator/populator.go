@@ -6,6 +6,7 @@ import (
 	"sync"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/aws/arn"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	"github.com/aws/aws-sdk-go-v2/service/ec2/types"
 )
@@ -25,13 +26,14 @@ type Result struct {
 	Results map[string]ResultFragment
 }
 
-func (r *Result) add(key string, eni types.NetworkInterface) {
+func (r *Result) add(resourceARN arn.ARN, eni types.NetworkInterface) {
 	r.Lock()
 	defer r.Unlock()
 	if r.Results == nil {
 		r.Results = map[string]ResultFragment{}
 	}
 	f := ResultFragment{}
+	key := resourceARN.String()
 	f.NetworkInterfaces = append(r.Results[key].NetworkInterfaces, NetworkInterface{NetworkInterfaceID: *eni.NetworkInterfaceId, AvailabilityZone: *eni.AvailabilityZone})
 	r.Results[key] = f
 }
@@ -53,11 +55,11 @@ func (p *ENIPopulator) Result() *Result {
 	return p.res
 }
 
-func (p *ENIPopulator) PopulateWithSecurityGroups(ctx context.Context, securityGroupIds []string, sg2resource map[string]string) error {
+func (p *ENIPopulator) PopulateWithSecurityGroups(ctx context.Context, sgAssociation *SecurityGroupAssociation) error {
 	client := p.client
 	input := &ec2.DescribeNetworkInterfacesInput{
 		Filters: []types.Filter{
-			{Name: aws.String("group-id"), Values: securityGroupIds},
+			{Name: aws.String("group-id"), Values: sgAssociation.securityGroupIDs()},
 			{Name: aws.String("attachment.status"), Values: []string{"attached"}},
 		},
 	}
@@ -67,15 +69,43 @@ func (p *ENIPopulator) PopulateWithSecurityGroups(ctx context.Context, securityG
 	}
 	for _, x := range out.NetworkInterfaces {
 		for _, sg := range x.Groups {
-			if sg.GroupId == nil {
+			resourceARN, ok := sgAssociation.get(sg.GroupId)
+			if !ok {
 				continue
 			}
-			resource := sg2resource[*sg.GroupId]
-			if resource == "" {
-				continue
-			}
-			p.res.add(resource, x)
+			p.res.add(resourceARN, x)
 		}
 	}
 	return nil
+}
+
+type SecurityGroupAssociation struct {
+	sgID2Resource map[string]arn.ARN
+}
+
+func (a *SecurityGroupAssociation) Add(resource arn.ARN, securityGroupIDs ...string) {
+	if a.sgID2Resource == nil {
+		a.sgID2Resource = map[string]arn.ARN{}
+	}
+	for _, sgID := range securityGroupIDs {
+		a.sgID2Resource[sgID] = resource
+	}
+}
+
+func (a *SecurityGroupAssociation) get(arnRef *string) (arn.ARN, bool) {
+	if arnRef == nil {
+		return arn.ARN{}, false
+	}
+	x, ok := a.sgID2Resource[*arnRef]
+	return x, ok
+}
+
+func (a *SecurityGroupAssociation) securityGroupIDs() []string {
+	ret := make([]string, len(a.sgID2Resource))
+	var i int
+	for x := range a.sgID2Resource {
+		ret[i] = x
+		i++
+	}
+	return ret
 }

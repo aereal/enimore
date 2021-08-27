@@ -2,6 +2,7 @@ package enimore
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/aereal/enimore/enipopulator"
 	arnparser "github.com/aws/aws-sdk-go-v2/aws/arn"
@@ -37,8 +38,7 @@ func (a *LambdaFunctionAccumulator) Accumulate(ctx context.Context, populator *e
 	for _, fn := range a.arns {
 		unseen[fn.String()] = true
 	}
-	var securityGroupIds []string
-	sg2fn := map[string]string{}
+	association := &enipopulator.SecurityGroupAssociation{}
 	input := &lambda.ListFunctionsInput{}
 	for {
 		out, err := a.client.ListFunctions(ctx, input)
@@ -52,10 +52,11 @@ func (a *LambdaFunctionAccumulator) Accumulate(ctx context.Context, populator *e
 			if !unseen[*fn.FunctionArn] {
 				continue
 			}
-			securityGroupIds = append(securityGroupIds, fn.VpcConfig.SecurityGroupIds...)
-			for _, sg := range fn.VpcConfig.SecurityGroupIds {
-				sg2fn[sg] = *fn.FunctionArn
+			fnARN, err := arnparser.Parse(*fn.FunctionArn)
+			if err != nil {
+				return fmt.Errorf("[BUG] invalid ARN: %w", err)
 			}
+			association.Add(fnARN, fn.VpcConfig.SecurityGroupIds...)
 			delete(unseen, *fn.FunctionArn)
 		}
 		if len(unseen) == 0 || out.NextMarker == nil {
@@ -63,7 +64,7 @@ func (a *LambdaFunctionAccumulator) Accumulate(ctx context.Context, populator *e
 		}
 		input.Marker = out.NextMarker
 	}
-	if err := populator.PopulateWithSecurityGroups(ctx, securityGroupIds, sg2fn); err != nil {
+	if err := populator.PopulateWithSecurityGroups(ctx, association); err != nil {
 		return err
 	}
 	return nil

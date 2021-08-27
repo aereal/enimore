@@ -1,3 +1,5 @@
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination ../internal/mocks/mock_ec2.go github.com/aereal/enimore/enipopulator EC2Client
+
 package enipopulator
 
 import (
@@ -38,16 +40,16 @@ func (r *Result) add(resourceARN arn.ARN, eni types.NetworkInterface) {
 	r.Results[key] = f
 }
 
-type ec2Client interface {
+type EC2Client interface {
 	DescribeNetworkInterfaces(ctx context.Context, params *ec2.DescribeNetworkInterfacesInput, optFns ...func(*ec2.Options)) (*ec2.DescribeNetworkInterfacesOutput, error)
 }
 
-func New(client ec2Client) *ENIPopulator {
+func New(client EC2Client) *ENIPopulator {
 	return &ENIPopulator{client: client, res: &Result{Results: map[string]ResultFragment{}}}
 }
 
 type ENIPopulator struct {
-	client ec2Client
+	client EC2Client
 	res    *Result
 }
 

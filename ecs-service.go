@@ -1,3 +1,5 @@
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination ./internal/mocks/mock_ecs.go github.com/aereal/enimore ECSClient
+
 package enimore
 
 import (
@@ -14,11 +16,11 @@ import (
 
 var serviceECS = "ecs"
 
-type ecsClient interface {
+type ECSClient interface {
 	DescribeServices(ctx context.Context, params *ecs.DescribeServicesInput, optFns ...func(*ecs.Options)) (*ecs.DescribeServicesOutput, error)
 }
 
-func NewECSServiceAccumulator(client ecsClient, arns []arnparser.ARN) *ECSServiceAccumulator {
+func NewECSServiceAccumulator(client ECSClient, arns []arnparser.ARN) *ECSServiceAccumulator {
 	accum := &ECSServiceAccumulator{client: client}
 	for _, arn := range arns {
 		if arn.Service == serviceECS {
@@ -30,7 +32,7 @@ func NewECSServiceAccumulator(client ecsClient, arns []arnparser.ARN) *ECSServic
 
 type ECSServiceAccumulator struct {
 	arns   []arnparser.ARN
-	client ecsClient
+	client ECSClient
 }
 
 var _ Accumulator = &ECSServiceAccumulator{}

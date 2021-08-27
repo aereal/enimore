@@ -6,6 +6,7 @@ import (
 	"sync"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/aws/arn"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	"github.com/aws/aws-sdk-go-v2/service/ec2/types"
 )
@@ -25,13 +26,14 @@ type Result struct {
 	Results map[string]ResultFragment
 }
 
-func (r *Result) add(key string, eni types.NetworkInterface) {
+func (r *Result) add(resourceARN arn.ARN, eni types.NetworkInterface) {
 	r.Lock()
 	defer r.Unlock()
 	if r.Results == nil {
 		r.Results = map[string]ResultFragment{}
 	}
 	f := ResultFragment{}
+	key := resourceARN.String()
 	f.NetworkInterfaces = append(r.Results[key].NetworkInterfaces, NetworkInterface{NetworkInterfaceID: *eni.NetworkInterfaceId, AvailabilityZone: *eni.AvailabilityZone})
 	r.Results[key] = f
 }
@@ -53,7 +55,7 @@ func (p *ENIPopulator) Result() *Result {
 	return p.res
 }
 
-func (p *ENIPopulator) PopulateWithSecurityGroups(ctx context.Context, securityGroupIds []string, sg2resource map[string]string) error {
+func (p *ENIPopulator) PopulateWithSecurityGroups(ctx context.Context, securityGroupIds []string, sg2resource map[string]arn.ARN) error {
 	client := p.client
 	input := &ec2.DescribeNetworkInterfacesInput{
 		Filters: []types.Filter{
@@ -70,11 +72,11 @@ func (p *ENIPopulator) PopulateWithSecurityGroups(ctx context.Context, securityG
 			if sg.GroupId == nil {
 				continue
 			}
-			resource := sg2resource[*sg.GroupId]
-			if resource == "" {
+			resourceARN, ok := sg2resource[*sg.GroupId]
+			if !ok {
 				continue
 			}
-			p.res.add(resource, x)
+			p.res.add(resourceARN, x)
 		}
 	}
 	return nil

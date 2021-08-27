@@ -2,6 +2,7 @@ package enimore
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/aereal/enimore/enipopulator"
 	arnparser "github.com/aws/aws-sdk-go-v2/aws/arn"
@@ -38,7 +39,7 @@ func (a *LambdaFunctionAccumulator) Accumulate(ctx context.Context, populator *e
 		unseen[fn.String()] = true
 	}
 	var securityGroupIds []string
-	sg2fn := map[string]string{}
+	sg2fn := map[string]arnparser.ARN{}
 	input := &lambda.ListFunctionsInput{}
 	for {
 		out, err := a.client.ListFunctions(ctx, input)
@@ -52,9 +53,13 @@ func (a *LambdaFunctionAccumulator) Accumulate(ctx context.Context, populator *e
 			if !unseen[*fn.FunctionArn] {
 				continue
 			}
+			fnARN, err := arnparser.Parse(*fn.FunctionArn)
+			if err != nil {
+				return fmt.Errorf("[BUG] invalid ARN: %w", err)
+			}
 			securityGroupIds = append(securityGroupIds, fn.VpcConfig.SecurityGroupIds...)
 			for _, sg := range fn.VpcConfig.SecurityGroupIds {
-				sg2fn[sg] = *fn.FunctionArn
+				sg2fn[sg] = fnARN
 			}
 			delete(unseen, *fn.FunctionArn)
 		}

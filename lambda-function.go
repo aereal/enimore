@@ -38,8 +38,7 @@ func (a *LambdaFunctionAccumulator) Accumulate(ctx context.Context, populator *e
 	for _, fn := range a.arns {
 		unseen[fn.String()] = true
 	}
-	var securityGroupIds []string
-	sg2fn := map[string]arnparser.ARN{}
+	association := &enipopulator.SecurityGroupAssociation{}
 	input := &lambda.ListFunctionsInput{}
 	for {
 		out, err := a.client.ListFunctions(ctx, input)
@@ -57,10 +56,7 @@ func (a *LambdaFunctionAccumulator) Accumulate(ctx context.Context, populator *e
 			if err != nil {
 				return fmt.Errorf("[BUG] invalid ARN: %w", err)
 			}
-			securityGroupIds = append(securityGroupIds, fn.VpcConfig.SecurityGroupIds...)
-			for _, sg := range fn.VpcConfig.SecurityGroupIds {
-				sg2fn[sg] = fnARN
-			}
+			association.Add(fnARN, fn.VpcConfig.SecurityGroupIds...)
 			delete(unseen, *fn.FunctionArn)
 		}
 		if len(unseen) == 0 || out.NextMarker == nil {
@@ -68,7 +64,7 @@ func (a *LambdaFunctionAccumulator) Accumulate(ctx context.Context, populator *e
 		}
 		input.Marker = out.NextMarker
 	}
-	if err := populator.PopulateWithSecurityGroups(ctx, securityGroupIds, sg2fn); err != nil {
+	if err := populator.PopulateWithSecurityGroups(ctx, association); err != nil {
 		return err
 	}
 	return nil

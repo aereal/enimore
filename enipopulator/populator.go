@@ -55,11 +55,11 @@ func (p *ENIPopulator) Result() *Result {
 	return p.res
 }
 
-func (p *ENIPopulator) PopulateWithSecurityGroups(ctx context.Context, securityGroupIds []string, sg2resource map[string]arn.ARN) error {
+func (p *ENIPopulator) PopulateWithSecurityGroups(ctx context.Context, sgAssociation *SecurityGroupAssociation) error {
 	client := p.client
 	input := &ec2.DescribeNetworkInterfacesInput{
 		Filters: []types.Filter{
-			{Name: aws.String("group-id"), Values: securityGroupIds},
+			{Name: aws.String("group-id"), Values: sgAssociation.securityGroupIDs()},
 			{Name: aws.String("attachment.status"), Values: []string{"attached"}},
 		},
 	}
@@ -69,10 +69,7 @@ func (p *ENIPopulator) PopulateWithSecurityGroups(ctx context.Context, securityG
 	}
 	for _, x := range out.NetworkInterfaces {
 		for _, sg := range x.Groups {
-			if sg.GroupId == nil {
-				continue
-			}
-			resourceARN, ok := sg2resource[*sg.GroupId]
+			resourceARN, ok := sgAssociation.get(sg.GroupId)
 			if !ok {
 				continue
 			}
@@ -80,4 +77,35 @@ func (p *ENIPopulator) PopulateWithSecurityGroups(ctx context.Context, securityG
 		}
 	}
 	return nil
+}
+
+type SecurityGroupAssociation struct {
+	sgID2Resource map[string]arn.ARN
+}
+
+func (a *SecurityGroupAssociation) Add(resource arn.ARN, securityGroupIDs ...string) {
+	if a.sgID2Resource == nil {
+		a.sgID2Resource = map[string]arn.ARN{}
+	}
+	for _, sgID := range securityGroupIDs {
+		a.sgID2Resource[sgID] = resource
+	}
+}
+
+func (a *SecurityGroupAssociation) get(arnRef *string) (arn.ARN, bool) {
+	if arnRef == nil {
+		return arn.ARN{}, false
+	}
+	x, ok := a.sgID2Resource[*arnRef]
+	return x, ok
+}
+
+func (a *SecurityGroupAssociation) securityGroupIDs() []string {
+	ret := make([]string, len(a.sgID2Resource))
+	var i int
+	for x := range a.sgID2Resource {
+		ret[i] = x
+		i++
+	}
+	return ret
 }

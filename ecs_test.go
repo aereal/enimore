@@ -23,30 +23,34 @@ func TestECSServiceAccumulate_ok(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	mlc := mocks.NewMockECSClient(ctrl)
-	mlc.EXPECT().DescribeServices(gomock.Any(), gomock.Any()).Times(1).Return(&ecs.DescribeServicesOutput{
-		Services: []ecstypes.Service{
-			{
-				ServiceArn: &serviceARN1,
-				NetworkConfiguration: &ecstypes.NetworkConfiguration{
-					AwsvpcConfiguration: &ecstypes.AwsVpcConfiguration{
-						SecurityGroups: securityGroupIDs1,
+	mlc.EXPECT().DescribeServices(gomock.Any(), gomock.Any()).Times(1).DoAndReturn(func(ctx context.Context, input *ecs.DescribeServicesInput, opts ...func(*ecs.Options)) (*ecs.DescribeServicesOutput, error) {
+		return &ecs.DescribeServicesOutput{
+			Services: []ecstypes.Service{
+				{
+					ServiceArn: &serviceARN1,
+					NetworkConfiguration: &ecstypes.NetworkConfiguration{
+						AwsvpcConfiguration: &ecstypes.AwsVpcConfiguration{
+							SecurityGroups: securityGroupIDs1,
+						},
 					},
 				},
 			},
-		},
-	}, nil)
-	mlc.EXPECT().DescribeServices(gomock.Any(), gomock.Any()).Times(1).Return(&ecs.DescribeServicesOutput{
-		Services: []ecstypes.Service{
-			{
-				ServiceArn: &serviceARN2,
-				NetworkConfiguration: &ecstypes.NetworkConfiguration{
-					AwsvpcConfiguration: &ecstypes.AwsVpcConfiguration{
-						SecurityGroups: securityGroupIDs2,
+		}, nil
+	})
+	mlc.EXPECT().DescribeServices(gomock.Any(), gomock.Any()).Times(1).DoAndReturn(func(ctx context.Context, input *ecs.DescribeServicesInput, opts ...func(*ecs.Options)) (*ecs.DescribeServicesOutput, error) {
+		return &ecs.DescribeServicesOutput{
+			Services: []ecstypes.Service{
+				{
+					ServiceArn: &serviceARN2,
+					NetworkConfiguration: &ecstypes.NetworkConfiguration{
+						AwsvpcConfiguration: &ecstypes.AwsVpcConfiguration{
+							SecurityGroups: securityGroupIDs2,
+						},
 					},
 				},
 			},
-		},
-	}, nil)
+		}, nil
+	})
 	mec := mocks.NewMockEC2Client(ctrl)
 	mec.EXPECT().DescribeNetworkInterfaces(gomock.Any(), gomock.Any()).Times(1).Return(&ec2.DescribeNetworkInterfacesOutput{
 		NetworkInterfaces: []ec2types.NetworkInterface{

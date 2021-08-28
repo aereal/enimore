@@ -90,8 +90,10 @@ func (a *ECSServiceAccumulator) Accumulate(ctx context.Context, populator *enipo
 				}
 				association.Add(svcARN, svc.NetworkConfiguration.AwsvpcConfiguration.SecurityGroups...)
 			}
-			if err := populator.PopulateWithSecurityGroups(ctx, association); err != nil {
-				return err
+			if association.HasAny() {
+				if err := populator.PopulateWithSecurityGroups(ctx, association); err != nil {
+					return err
+				}
 			}
 			return nil
 		})

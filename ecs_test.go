@@ -3,6 +3,7 @@ package enimore
 import (
 	"context"
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/aereal/enimore/internal/mocks"
@@ -13,6 +14,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/ecs"
 	ecstypes "github.com/aws/aws-sdk-go-v2/service/ecs/types"
 	"github.com/golang/mock/gomock"
+	"github.com/google/go-cmp/cmp"
 )
 
 func TestECSServiceAccumulate_ok(t *testing.T) {
@@ -23,33 +25,39 @@ func TestECSServiceAccumulate_ok(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	mlc := mocks.NewMockECSClient(ctrl)
-	mlc.EXPECT().DescribeServices(gomock.Any(), gomock.Any()).Times(1).DoAndReturn(func(ctx context.Context, input *ecs.DescribeServicesInput, opts ...func(*ecs.Options)) (*ecs.DescribeServicesOutput, error) {
-		return &ecs.DescribeServicesOutput{
-			Services: []ecstypes.Service{
-				{
-					ServiceArn: &serviceARN1,
-					NetworkConfiguration: &ecstypes.NetworkConfiguration{
-						AwsvpcConfiguration: &ecstypes.AwsVpcConfiguration{
-							SecurityGroups: securityGroupIDs1,
+	mlc.EXPECT().DescribeServices(gomock.Any(), gomock.Any()).Times(2).DoAndReturn(func(ctx context.Context, input *ecs.DescribeServicesInput, opts ...func(*ecs.Options)) (*ecs.DescribeServicesOutput, error) {
+		k := strings.Join(input.Services, "")
+		switch k {
+		case serviceARN1:
+			return &ecs.DescribeServicesOutput{
+				Services: []ecstypes.Service{
+					{
+						ServiceArn: &serviceARN1,
+						NetworkConfiguration: &ecstypes.NetworkConfiguration{
+							AwsvpcConfiguration: &ecstypes.AwsVpcConfiguration{
+								SecurityGroups: securityGroupIDs1,
+							},
 						},
 					},
 				},
-			},
-		}, nil
-	})
-	mlc.EXPECT().DescribeServices(gomock.Any(), gomock.Any()).Times(1).DoAndReturn(func(ctx context.Context, input *ecs.DescribeServicesInput, opts ...func(*ecs.Options)) (*ecs.DescribeServicesOutput, error) {
-		return &ecs.DescribeServicesOutput{
-			Services: []ecstypes.Service{
-				{
-					ServiceArn: &serviceARN2,
-					NetworkConfiguration: &ecstypes.NetworkConfiguration{
-						AwsvpcConfiguration: &ecstypes.AwsVpcConfiguration{
-							SecurityGroups: securityGroupIDs2,
+			}, nil
+		case serviceARN2:
+			return &ecs.DescribeServicesOutput{
+				Services: []ecstypes.Service{
+					{
+						ServiceArn: &serviceARN2,
+						NetworkConfiguration: &ecstypes.NetworkConfiguration{
+							AwsvpcConfiguration: &ecstypes.AwsVpcConfiguration{
+								SecurityGroups: securityGroupIDs2,
+							},
 						},
 					},
 				},
-			},
-		}, nil
+			}, nil
+		default:
+			t.Fatalf("unknown DescribeServices.Services: %#v", input.Services)
+			return nil, nil
+		}
 	})
 	mec := mocks.NewMockEC2Client(ctrl)
 	mec.EXPECT().DescribeNetworkInterfaces(gomock.Any(), gomock.Any()).Times(1).Return(&ec2.DescribeNetworkInterfacesOutput{

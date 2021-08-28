@@ -8,7 +8,6 @@ import (
 	"log"
 	"strings"
 
-	"github.com/aereal/enimore/enipopulator"
 	arnparser "github.com/aws/aws-sdk-go-v2/aws/arn"
 	"github.com/aws/aws-sdk-go-v2/service/ecs"
 	"golang.org/x/sync/errgroup"
@@ -54,7 +53,7 @@ func clusterArnFromServiceArn(serviceARN arnparser.ARN) (arnparser.ARN, error) {
 	}, nil
 }
 
-func (a *ECSServiceAccumulator) Accumulate(ctx context.Context, populator *enipopulator.ENIPopulator) error {
+func (a *ECSServiceAccumulator) Accumulate(ctx context.Context, populator *ENIPopulator) error {
 	// cluster => *ecs.DescribeServicesInput
 	inputs := map[string]*ecs.DescribeServicesInput{}
 	for _, serviceARN := range a.arns {
@@ -72,7 +71,7 @@ func (a *ECSServiceAccumulator) Accumulate(ctx context.Context, populator *enipo
 		inputs[key].Services = append(inputs[key].Services, serviceARN.String())
 	}
 	eg, ctx := errgroup.WithContext(ctx)
-	association := &enipopulator.SecurityGroupAssociation{}
+	association := &securityGroupAssociation{}
 	for _, i := range inputs {
 		input := i
 		eg.Go(func() error {
@@ -88,7 +87,7 @@ func (a *ECSServiceAccumulator) Accumulate(ctx context.Context, populator *enipo
 				if err != nil {
 					return fmt.Errorf("[BUG] invalid ARN: %w", err)
 				}
-				association.Add(svcARN, svc.NetworkConfiguration.AwsvpcConfiguration.SecurityGroups...)
+				association.add(svcARN, svc.NetworkConfiguration.AwsvpcConfiguration.SecurityGroups...)
 			}
 			return nil
 		})
@@ -96,7 +95,7 @@ func (a *ECSServiceAccumulator) Accumulate(ctx context.Context, populator *enipo
 	if err := eg.Wait(); err != nil {
 		return err
 	}
-	if association.HasAny() {
+	if association.hasAny() {
 		if err := populator.PopulateWithSecurityGroups(ctx, association); err != nil {
 			return err
 		}

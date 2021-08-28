@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/aereal/enimore/enipopulator"
 	"github.com/aereal/enimore/internal/mocks"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/aws/arn"
@@ -42,7 +41,7 @@ func TestLambdaFunctionAccumulate_ok(t *testing.T) {
 			},
 		},
 	}, nil)
-	p := enipopulator.New(mec)
+	p := NewENIPopulator(mec)
 	a := NewLambdaFunctionAccumulator(mlc, []arn.ARN{mustParseARN(fnARN)})
 	ctx := context.Background()
 	err := a.Accumulate(ctx, p)
@@ -60,7 +59,7 @@ func TestLambdaFunctionAccumulate_notVPC(t *testing.T) {
 		Functions: []lambdatypes.FunctionConfiguration{{FunctionArn: &fnARN}},
 	}, nil)
 	mec := mocks.NewMockEC2Client(ctrl)
-	p := enipopulator.New(mec)
+	p := NewENIPopulator(mec)
 	a := NewLambdaFunctionAccumulator(mlc, []arn.ARN{mustParseARN(fnARN)})
 	ctx := context.Background()
 	err := a.Accumulate(ctx, p)
@@ -82,7 +81,7 @@ func TestLambdaFunctionAccumulate_noARNs(t *testing.T) {
 			defer ctrl.Finish()
 			mlc := mocks.NewMockLambdaClient(ctrl)
 			mec := mocks.NewMockEC2Client(ctrl)
-			p := enipopulator.New(mec)
+			p := NewENIPopulator(mec)
 			a := NewLambdaFunctionAccumulator(mlc, targetARNs)
 			ctx := context.Background()
 			err := a.Accumulate(ctx, p)

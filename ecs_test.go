@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/aereal/enimore/enipopulator"
 	"github.com/aereal/enimore/internal/mocks"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/aws/arn"
@@ -58,7 +57,7 @@ func TestECSServiceAccumulate_ok(t *testing.T) {
 			},
 		},
 	}, nil)
-	p := enipopulator.New(mec)
+	p := NewENIPopulator(mec)
 	a := NewECSServiceAccumulator(mlc, []arn.ARN{mustParseARN(serviceARN1), mustParseARN(serviceARN2)})
 	ctx := context.Background()
 	err := a.Accumulate(ctx, p)
@@ -76,7 +75,7 @@ func TestECSServiceAccumulate_notVPC(t *testing.T) {
 		Services: []ecstypes.Service{{ServiceArn: &serviceARN}},
 	}, nil)
 	mec := mocks.NewMockEC2Client(ctrl)
-	p := enipopulator.New(mec)
+	p := NewENIPopulator(mec)
 	a := NewECSServiceAccumulator(mlc, []arn.ARN{mustParseARN(serviceARN)})
 	ctx := context.Background()
 	err := a.Accumulate(ctx, p)
@@ -98,7 +97,7 @@ func TestECSServiceAccumulate_noARNs(t *testing.T) {
 			defer ctrl.Finish()
 			mcc := mocks.NewMockECSClient(ctrl)
 			mec := mocks.NewMockEC2Client(ctrl)
-			p := enipopulator.New(mec)
+			p := NewENIPopulator(mec)
 			a := NewECSServiceAccumulator(mcc, targetARNs)
 			ctx := context.Background()
 			err := a.Accumulate(ctx, p)

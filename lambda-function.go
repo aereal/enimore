@@ -6,7 +6,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/aereal/enimore/enipopulator"
 	arnparser "github.com/aws/aws-sdk-go-v2/aws/arn"
 	"github.com/aws/aws-sdk-go-v2/service/lambda"
 )
@@ -34,7 +33,7 @@ type LambdaFunctionAccumulator struct {
 
 var _ Accumulator = &LambdaFunctionAccumulator{}
 
-func (a *LambdaFunctionAccumulator) Accumulate(ctx context.Context, populator *enipopulator.ENIPopulator) error {
+func (a *LambdaFunctionAccumulator) Accumulate(ctx context.Context, populator *ENIPopulator) error {
 	if len(a.arns) == 0 {
 		return nil
 	}
@@ -43,7 +42,7 @@ func (a *LambdaFunctionAccumulator) Accumulate(ctx context.Context, populator *e
 	for _, fn := range a.arns {
 		unseen[fn.String()] = true
 	}
-	association := &enipopulator.SecurityGroupAssociation{}
+	association := &securityGroupAssociation{}
 	input := &lambda.ListFunctionsInput{}
 	for {
 		out, err := a.client.ListFunctions(ctx, input)
@@ -61,7 +60,7 @@ func (a *LambdaFunctionAccumulator) Accumulate(ctx context.Context, populator *e
 			if err != nil {
 				return fmt.Errorf("[BUG] invalid ARN: %w", err)
 			}
-			association.Add(fnARN, fn.VpcConfig.SecurityGroupIds...)
+			association.add(fnARN, fn.VpcConfig.SecurityGroupIds...)
 			delete(unseen, *fn.FunctionArn)
 		}
 		if len(unseen) == 0 || out.NextMarker == nil {
@@ -69,7 +68,7 @@ func (a *LambdaFunctionAccumulator) Accumulate(ctx context.Context, populator *e
 		}
 		input.Marker = out.NextMarker
 	}
-	if association.HasAny() {
+	if association.hasAny() {
 		if err := populator.PopulateWithSecurityGroups(ctx, association); err != nil {
 			return err
 		}

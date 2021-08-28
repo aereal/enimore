@@ -8,7 +8,6 @@ import (
 	"os"
 
 	"github.com/aereal/enimore"
-	"github.com/aereal/enimore/enipopulator"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	"github.com/aws/aws-sdk-go-v2/service/ecs"
@@ -57,7 +56,7 @@ func (a *App) Run(argv []string) int {
 
 	ecsAccum := enimore.NewECSServiceAccumulator(ecs.NewFromConfig(cfg), a.arns)
 	lambdaAccum := enimore.NewLambdaFunctionAccumulator(lambda.NewFromConfig(cfg), a.arns)
-	populator := enipopulator.New(ec2.NewFromConfig(cfg))
+	populator := enimore.NewENIPopulator(ec2.NewFromConfig(cfg))
 
 	eg, ctx := errgroup.WithContext(ctx)
 	eg.Go(func() error {

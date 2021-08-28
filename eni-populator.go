@@ -71,7 +71,7 @@ func (p *ENIPopulator) PopulateWithSecurityGroups(ctx context.Context, sgAssocia
 	}
 	for _, x := range out.NetworkInterfaces {
 		for _, sg := range x.Groups {
-			resourceARN, ok := sgAssociation.get(sg.GroupId)
+			resourceARN, ok := sgAssociation.get(*sg.GroupId)
 			if !ok {
 				continue
 			}
@@ -103,13 +103,13 @@ func (a *securityGroupAssociation) add(resource arn.ARN, securityGroupIDs ...str
 	}
 }
 
-func (a *securityGroupAssociation) get(arnRef *string) (arn.ARN, bool) {
+func (a *securityGroupAssociation) get(arnRef string) (arn.ARN, bool) {
 	a.RLock()
 	defer a.RUnlock()
-	if arnRef == nil {
+	if arnRef == "" {
 		return arn.ARN{}, false
 	}
-	x, ok := a.sgID2Resource[*arnRef]
+	x, ok := a.sgID2Resource[arnRef]
 	return x, ok
 }
 

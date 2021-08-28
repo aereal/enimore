@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/aereal/enimore/internal/mocks"
@@ -15,6 +16,7 @@ import (
 	ecstypes "github.com/aws/aws-sdk-go-v2/service/ecs/types"
 	"github.com/golang/mock/gomock"
 	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 )
 
 func TestECSServiceAccumulate_ok(t *testing.T) {
@@ -64,8 +66,13 @@ func TestECSServiceAccumulate_ok(t *testing.T) {
 		NetworkInterfaces: []ec2types.NetworkInterface{
 			{
 				NetworkInterfaceId: aws.String("eni-12345"),
-				Groups:             []ec2types.GroupIdentifier{{GroupId: &securityGroupIDs1[0]}, {GroupId: &securityGroupIDs1[1]}},
+				Groups:             []ec2types.GroupIdentifier{{GroupId: &securityGroupIDs1[0]}, {GroupId: &securityGroupIDs1[1]}, {GroupId: &securityGroupIDs2[0]}, {GroupId: &securityGroupIDs2[1]}},
 				AvailabilityZone:   aws.String("us-east-1a"),
+			},
+			{
+				NetworkInterfaceId: aws.String("eni-67890"),
+				Groups:             []ec2types.GroupIdentifier{{GroupId: &securityGroupIDs2[0]}, {GroupId: &securityGroupIDs2[1]}},
+				AvailabilityZone:   aws.String("us-east-1b"),
 			},
 		},
 	}, nil)
@@ -75,6 +82,22 @@ func TestECSServiceAccumulate_ok(t *testing.T) {
 	err := a.Accumulate(ctx, p)
 	if err != nil {
 		t.Fatal(err)
+	}
+	got := p.Result()
+	want := &Result{Results: map[string]ResultFragment{
+		serviceARN1: {
+			NetworkInterfaces: []NetworkInterface{
+				{NetworkInterfaceID: "eni-12345", AvailabilityZone: "us-east-1a"},
+			},
+		},
+		serviceARN2: {
+			NetworkInterfaces: []NetworkInterface{
+				{NetworkInterfaceID: "eni-67890", AvailabilityZone: "us-east-1b"},
+			},
+		},
+	}}
+	if diff := diffResult(t, got, want); diff != "" {
+		t.Errorf("Result (-got, +want):\n%s", diff)
 	}
 }
 
@@ -93,6 +116,10 @@ func TestECSServiceAccumulate_notVPC(t *testing.T) {
 	err := a.Accumulate(ctx, p)
 	if err != nil {
 		t.Fatal(err)
+	}
+	got := p.Result()
+	if diff := diffResult(t, got, &Result{Results: map[string]ResultFragment{}}); diff != "" {
+		t.Errorf("Result (-got, +want):\n%s", diff)
 	}
 }
 
@@ -116,6 +143,15 @@ func TestECSServiceAccumulate_noARNs(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
+			got := p.Result()
+			if diff := diffResult(t, got, &Result{Results: map[string]ResultFragment{}}); diff != "" {
+				t.Errorf("Result (-got, +want):\n%s", diff)
+			}
 		})
 	}
+}
+
+func diffResult(t *testing.T, got, want *Result) string {
+	t.Helper()
+	return cmp.Diff(got, want, cmpopts.IgnoreUnexported(sync.Mutex{}))
 }

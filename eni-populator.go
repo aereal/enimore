@@ -76,6 +76,7 @@ func (p *ENIPopulator) PopulateWithSecurityGroups(ctx context.Context, sgAssocia
 				continue
 			}
 			p.res.add(resourceARN, x)
+			break
 		}
 	}
 	return nil

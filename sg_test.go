@@ -1,6 +1,7 @@
 package enimore
 
 import (
+	"sort"
 	"testing"
 
 	"github.com/aws/aws-sdk-go-v2/aws/arn"
@@ -19,7 +20,7 @@ func TestSecurityGroupAssociation(t *testing.T) {
 		if a.hasAny() {
 			t.Errorf("hasAny(): must return false")
 		}
-		if diff := cmp.Diff([]string{}, a.securityGroupIDs()); diff != "" {
+		if diff := diffStringSlice([]string{}, a.securityGroupIDs()); diff != "" {
 			t.Errorf("securityGroupIDs() (-want, +got):\n%s", diff)
 		}
 		if _, ok := a.get(securityGroupIDs1[0]); ok {
@@ -36,7 +37,7 @@ func TestSecurityGroupAssociation(t *testing.T) {
 		if !a.hasAny() {
 			t.Errorf("hasAny(): must return true")
 		}
-		if diff := cmp.Diff(securityGroupIDs1, a.securityGroupIDs()); diff != "" {
+		if diff := diffStringSlice(securityGroupIDs1, a.securityGroupIDs()); diff != "" {
 			t.Errorf("securityGroupIDs() (-want, +got):\n%s", diff)
 		}
 		if got, ok := a.get(securityGroupIDs1[0]); true {
@@ -56,7 +57,7 @@ func TestSecurityGroupAssociation(t *testing.T) {
 		if !a.hasAny() {
 			t.Errorf("hasAny(): must return true")
 		}
-		if diff := cmp.Diff(append(securityGroupIDs1, securityGroupIDs2...), a.securityGroupIDs()); diff != "" {
+		if diff := diffStringSlice(append(securityGroupIDs1, securityGroupIDs2...), a.securityGroupIDs()); diff != "" {
 			t.Errorf("securityGroupIDs() (-want, +got):\n%s", diff)
 		}
 		if got, ok := a.get(securityGroupIDs1[0]); true {
@@ -76,4 +77,12 @@ func TestSecurityGroupAssociation(t *testing.T) {
 			}
 		}
 	})
+}
+
+func diffStringSlice(want, got []string) string {
+	return cmp.Diff(want, got, cmp.Transformer("sorted", func(in []string) []string {
+		out := append([]string(nil), in...)
+		sort.Strings(out)
+		return out
+	}))
 }

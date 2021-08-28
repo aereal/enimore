@@ -1,3 +1,5 @@
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination ./internal/mocks/mock_ecs.go github.com/aereal/enimore ECSClient
+
 package enimore
 
 import (
@@ -6,7 +8,6 @@ import (
 	"log"
 	"strings"
 
-	"github.com/aereal/enimore/enipopulator"
 	arnparser "github.com/aws/aws-sdk-go-v2/aws/arn"
 	"github.com/aws/aws-sdk-go-v2/service/ecs"
 	"golang.org/x/sync/errgroup"
@@ -14,11 +15,11 @@ import (
 
 var serviceECS = "ecs"
 
-type ecsClient interface {
+type ECSClient interface {
 	DescribeServices(ctx context.Context, params *ecs.DescribeServicesInput, optFns ...func(*ecs.Options)) (*ecs.DescribeServicesOutput, error)
 }
 
-func NewECSServiceAccumulator(client ecsClient, arns []arnparser.ARN) *ECSServiceAccumulator {
+func NewECSServiceAccumulator(client ECSClient, arns []arnparser.ARN) *ECSServiceAccumulator {
 	accum := &ECSServiceAccumulator{client: client}
 	for _, arn := range arns {
 		if arn.Service == serviceECS {
@@ -30,7 +31,7 @@ func NewECSServiceAccumulator(client ecsClient, arns []arnparser.ARN) *ECSServic
 
 type ECSServiceAccumulator struct {
 	arns   []arnparser.ARN
-	client ecsClient
+	client ECSClient
 }
 
 var _ Accumulator = &ECSServiceAccumulator{}
@@ -52,7 +53,7 @@ func clusterArnFromServiceArn(serviceARN arnparser.ARN) (arnparser.ARN, error) {
 	}, nil
 }
 
-func (a *ECSServiceAccumulator) Accumulate(ctx context.Context, populator *enipopulator.ENIPopulator) error {
+func (a *ECSServiceAccumulator) Accumulate(ctx context.Context, populator *ENIPopulator) error {
 	// cluster => *ecs.DescribeServicesInput
 	inputs := map[string]*ecs.DescribeServicesInput{}
 	for _, serviceARN := range a.arns {
@@ -70,6 +71,7 @@ func (a *ECSServiceAccumulator) Accumulate(ctx context.Context, populator *enipo
 		inputs[key].Services = append(inputs[key].Services, serviceARN.String())
 	}
 	eg, ctx := errgroup.WithContext(ctx)
+	association := &securityGroupAssociation{}
 	for _, i := range inputs {
 		input := i
 		eg.Go(func() error {
@@ -77,7 +79,6 @@ func (a *ECSServiceAccumulator) Accumulate(ctx context.Context, populator *enipo
 			if err != nil {
 				return fmt.Errorf("failed to describe service: %w", err)
 			}
-			association := &enipopulator.SecurityGroupAssociation{}
 			for _, svc := range out.Services {
 				if svc.NetworkConfiguration == nil {
 					continue
@@ -86,16 +87,18 @@ func (a *ECSServiceAccumulator) Accumulate(ctx context.Context, populator *enipo
 				if err != nil {
 					return fmt.Errorf("[BUG] invalid ARN: %w", err)
 				}
-				association.Add(svcARN, svc.NetworkConfiguration.AwsvpcConfiguration.SecurityGroups...)
-			}
-			if err := populator.PopulateWithSecurityGroups(ctx, association); err != nil {
-				return err
+				association.add(svcARN, svc.NetworkConfiguration.AwsvpcConfiguration.SecurityGroups...)
 			}
 			return nil
 		})
 	}
 	if err := eg.Wait(); err != nil {
 		return err
+	}
+	if association.hasAny() {
+		if err := populator.PopulateWithSecurityGroups(ctx, association); err != nil {
+			return err
+		}
 	}
 	return nil
 }

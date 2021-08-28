@@ -1,21 +1,22 @@
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination ./internal/mocks/mock_lambda.go github.com/aereal/enimore LambdaClient
+
 package enimore
 
 import (
 	"context"
 	"fmt"
 
-	"github.com/aereal/enimore/enipopulator"
 	arnparser "github.com/aws/aws-sdk-go-v2/aws/arn"
 	"github.com/aws/aws-sdk-go-v2/service/lambda"
 )
 
 var serviceLambda = "lambda"
 
-type lambdaClient interface {
+type LambdaClient interface {
 	ListFunctions(ctx context.Context, params *lambda.ListFunctionsInput, optFns ...func(*lambda.Options)) (*lambda.ListFunctionsOutput, error)
 }
 
-func NewLambdaFunctionAccumulator(client lambdaClient, arns []arnparser.ARN) *LambdaFunctionAccumulator {
+func NewLambdaFunctionAccumulator(client LambdaClient, arns []arnparser.ARN) *LambdaFunctionAccumulator {
 	accum := &LambdaFunctionAccumulator{client: client}
 	for _, arn := range arns {
 		if arn.Service == serviceLambda {
@@ -27,18 +28,21 @@ func NewLambdaFunctionAccumulator(client lambdaClient, arns []arnparser.ARN) *La
 
 type LambdaFunctionAccumulator struct {
 	arns   []arnparser.ARN
-	client lambdaClient
+	client LambdaClient
 }
 
 var _ Accumulator = &LambdaFunctionAccumulator{}
 
-func (a *LambdaFunctionAccumulator) Accumulate(ctx context.Context, populator *enipopulator.ENIPopulator) error {
+func (a *LambdaFunctionAccumulator) Accumulate(ctx context.Context, populator *ENIPopulator) error {
+	if len(a.arns) == 0 {
+		return nil
+	}
 	// fnARN -> isUnseen
 	unseen := map[string]bool{}
 	for _, fn := range a.arns {
 		unseen[fn.String()] = true
 	}
-	association := &enipopulator.SecurityGroupAssociation{}
+	association := &securityGroupAssociation{}
 	input := &lambda.ListFunctionsInput{}
 	for {
 		out, err := a.client.ListFunctions(ctx, input)
@@ -56,7 +60,7 @@ func (a *LambdaFunctionAccumulator) Accumulate(ctx context.Context, populator *e
 			if err != nil {
 				return fmt.Errorf("[BUG] invalid ARN: %w", err)
 			}
-			association.Add(fnARN, fn.VpcConfig.SecurityGroupIds...)
+			association.add(fnARN, fn.VpcConfig.SecurityGroupIds...)
 			delete(unseen, *fn.FunctionArn)
 		}
 		if len(unseen) == 0 || out.NextMarker == nil {
@@ -64,8 +68,10 @@ func (a *LambdaFunctionAccumulator) Accumulate(ctx context.Context, populator *e
 		}
 		input.Marker = out.NextMarker
 	}
-	if err := populator.PopulateWithSecurityGroups(ctx, association); err != nil {
-		return err
+	if association.hasAny() {
+		if err := populator.PopulateWithSecurityGroups(ctx, association); err != nil {
+			return err
+		}
 	}
 	return nil
 }

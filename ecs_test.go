@@ -17,18 +17,32 @@ import (
 )
 
 func TestECSServiceAccumulate_ok(t *testing.T) {
-	serviceARN := "arn:aws:ecs:us-east-1:123456789012:service/my-cluster/my-service"
-	securityGroupIDs := []string{"sg-1234567890", "sg-987654321"}
+	serviceARN1 := "arn:aws:ecs:us-east-1:123456789012:service/my-cluster-1/my-service"
+	serviceARN2 := "arn:aws:ecs:us-east-1:123456789012:service/my-cluster-2/my-service-2"
+	securityGroupIDs1 := []string{"sg-1234567890", "sg-987654321"}
+	securityGroupIDs2 := []string{"sg-8765432109", "sg-7654321098"}
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	mlc := mocks.NewMockECSClient(ctrl)
 	mlc.EXPECT().DescribeServices(gomock.Any(), gomock.Any()).Times(1).Return(&ecs.DescribeServicesOutput{
 		Services: []ecstypes.Service{
 			{
-				ServiceArn: &serviceARN,
+				ServiceArn: &serviceARN1,
 				NetworkConfiguration: &ecstypes.NetworkConfiguration{
 					AwsvpcConfiguration: &ecstypes.AwsVpcConfiguration{
-						SecurityGroups: securityGroupIDs,
+						SecurityGroups: securityGroupIDs1,
+					},
+				},
+			},
+		},
+	}, nil)
+	mlc.EXPECT().DescribeServices(gomock.Any(), gomock.Any()).Times(1).Return(&ecs.DescribeServicesOutput{
+		Services: []ecstypes.Service{
+			{
+				ServiceArn: &serviceARN2,
+				NetworkConfiguration: &ecstypes.NetworkConfiguration{
+					AwsvpcConfiguration: &ecstypes.AwsVpcConfiguration{
+						SecurityGroups: securityGroupIDs2,
 					},
 				},
 			},
@@ -39,13 +53,13 @@ func TestECSServiceAccumulate_ok(t *testing.T) {
 		NetworkInterfaces: []ec2types.NetworkInterface{
 			{
 				NetworkInterfaceId: aws.String("eni-12345"),
-				Groups:             []ec2types.GroupIdentifier{{GroupId: &securityGroupIDs[0]}, {GroupId: &securityGroupIDs[1]}},
+				Groups:             []ec2types.GroupIdentifier{{GroupId: &securityGroupIDs1[0]}, {GroupId: &securityGroupIDs1[1]}},
 				AvailabilityZone:   aws.String("us-east-1a"),
 			},
 		},
 	}, nil)
 	p := enipopulator.New(mec)
-	a := NewECSServiceAccumulator(mlc, []arn.ARN{mustParseARN(serviceARN)})
+	a := NewECSServiceAccumulator(mlc, []arn.ARN{mustParseARN(serviceARN1), mustParseARN(serviceARN2)})
 	ctx := context.Background()
 	err := a.Accumulate(ctx, p)
 	if err != nil {

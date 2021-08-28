@@ -72,6 +72,7 @@ func (a *ECSServiceAccumulator) Accumulate(ctx context.Context, populator *enipo
 		inputs[key].Services = append(inputs[key].Services, serviceARN.String())
 	}
 	eg, ctx := errgroup.WithContext(ctx)
+	association := &enipopulator.SecurityGroupAssociation{}
 	for _, i := range inputs {
 		input := i
 		eg.Go(func() error {
@@ -79,7 +80,6 @@ func (a *ECSServiceAccumulator) Accumulate(ctx context.Context, populator *enipo
 			if err != nil {
 				return fmt.Errorf("failed to describe service: %w", err)
 			}
-			association := &enipopulator.SecurityGroupAssociation{}
 			for _, svc := range out.Services {
 				if svc.NetworkConfiguration == nil {
 					continue
@@ -90,16 +90,16 @@ func (a *ECSServiceAccumulator) Accumulate(ctx context.Context, populator *enipo
 				}
 				association.Add(svcARN, svc.NetworkConfiguration.AwsvpcConfiguration.SecurityGroups...)
 			}
-			if association.HasAny() {
-				if err := populator.PopulateWithSecurityGroups(ctx, association); err != nil {
-					return err
-				}
-			}
 			return nil
 		})
 	}
 	if err := eg.Wait(); err != nil {
 		return err
+	}
+	if association.HasAny() {
+		if err := populator.PopulateWithSecurityGroups(ctx, association); err != nil {
+			return err
+		}
 	}
 	return nil
 }

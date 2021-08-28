@@ -82,14 +82,19 @@ func (p *ENIPopulator) PopulateWithSecurityGroups(ctx context.Context, sgAssocia
 }
 
 type SecurityGroupAssociation struct {
+	sync.RWMutex
 	sgID2Resource map[string]arn.ARN
 }
 
 func (a *SecurityGroupAssociation) HasAny() bool {
+	a.RLock()
+	defer a.RUnlock()
 	return len(a.sgID2Resource) > 0
 }
 
 func (a *SecurityGroupAssociation) Add(resource arn.ARN, securityGroupIDs ...string) {
+	a.Lock()
+	defer a.Unlock()
 	if a.sgID2Resource == nil {
 		a.sgID2Resource = map[string]arn.ARN{}
 	}
@@ -99,6 +104,8 @@ func (a *SecurityGroupAssociation) Add(resource arn.ARN, securityGroupIDs ...str
 }
 
 func (a *SecurityGroupAssociation) get(arnRef *string) (arn.ARN, bool) {
+	a.RLock()
+	defer a.RUnlock()
 	if arnRef == nil {
 		return arn.ARN{}, false
 	}
@@ -107,6 +114,8 @@ func (a *SecurityGroupAssociation) get(arnRef *string) (arn.ARN, bool) {
 }
 
 func (a *SecurityGroupAssociation) securityGroupIDs() []string {
+	a.RLock()
+	defer a.RUnlock()
 	ret := make([]string, len(a.sgID2Resource))
 	var i int
 	for x := range a.sgID2Resource {

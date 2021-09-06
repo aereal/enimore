@@ -68,8 +68,12 @@ func (a *App) Run(argv []string) int {
 	if err := eg.Wait(); err != nil {
 		return 1
 	}
+	res, err := populator.Run(ctx)
+	if err != nil {
+		return 1
+	}
 
-	if err := json.NewEncoder(a.outStream).Encode(populator.Result()); err != nil {
+	if err := json.NewEncoder(a.outStream).Encode(res); err != nil {
 		return 1
 	}
 	return 0

@@ -45,41 +45,44 @@ type EC2Client interface {
 }
 
 func NewENIPopulator(client EC2Client) *ENIPopulator {
-	return &ENIPopulator{client: client, res: &Result{Results: map[string]ResultFragment{}}}
+	return &ENIPopulator{client: client, sgAssociation: &securityGroupAssociation{}}
 }
 
 type ENIPopulator struct {
-	client EC2Client
-	res    *Result
+	client        EC2Client
+	sgAssociation *securityGroupAssociation
 }
 
-func (p *ENIPopulator) Result() *Result {
-	return p.res
+func (p *ENIPopulator) RequestSecurityGroups(resource arn.ARN, securityGroupIDs ...string) {
+	p.sgAssociation.add(resource, securityGroupIDs...)
 }
 
-func (p *ENIPopulator) PopulateWithSecurityGroups(ctx context.Context, sgAssociation *securityGroupAssociation) error {
-	client := p.client
+func (p *ENIPopulator) Run(ctx context.Context) (*Result, error) {
+	res := &Result{Results: map[string]ResultFragment{}}
+	if !p.sgAssociation.hasAny() {
+		return res, nil
+	}
 	input := &ec2.DescribeNetworkInterfacesInput{
 		Filters: []types.Filter{
-			{Name: aws.String("group-id"), Values: sgAssociation.securityGroupIDs()},
+			{Name: aws.String("group-id"), Values: p.sgAssociation.securityGroupIDs()},
 			{Name: aws.String("attachment.status"), Values: []string{"attached"}},
 		},
 	}
-	out, err := client.DescribeNetworkInterfaces(ctx, input)
+	out, err := p.client.DescribeNetworkInterfaces(ctx, input)
 	if err != nil {
-		return fmt.Errorf("ec2.DescribeNetworkInterfaces: %w", err)
+		return nil, fmt.Errorf("ec2.DescribeNetworkInterfaces: %w", err)
 	}
 	for _, x := range out.NetworkInterfaces {
 		for _, sg := range x.Groups {
-			resourceARN, ok := sgAssociation.get(*sg.GroupId)
+			resourceARN, ok := p.sgAssociation.get(*sg.GroupId)
 			if !ok {
 				continue
 			}
-			p.res.add(resourceARN, x)
+			res.add(resourceARN, x)
 			break
 		}
 	}
-	return nil
+	return res, nil
 }
 
 type securityGroupAssociation struct {

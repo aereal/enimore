@@ -48,6 +48,13 @@ func TestLambdaFunctionAccumulate_ok(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	got, err := p.Run(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got == nil {
+		t.Error("result must not be empty")
+	}
 }
 
 func TestLambdaFunctionAccumulate_notVPC(t *testing.T) {
@@ -65,6 +72,13 @@ func TestLambdaFunctionAccumulate_notVPC(t *testing.T) {
 	err := a.Accumulate(ctx, p)
 	if err != nil {
 		t.Fatal(err)
+	}
+	got, err := p.Run(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got == nil {
+		t.Error("result must not be empty")
 	}
 }
 
@@ -87,6 +101,13 @@ func TestLambdaFunctionAccumulate_noARNs(t *testing.T) {
 			err := a.Accumulate(ctx, p)
 			if err != nil {
 				t.Fatal(err)
+			}
+			got, err := p.Run(ctx)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got == nil {
+				t.Error("result must not be empty")
 			}
 		})
 	}

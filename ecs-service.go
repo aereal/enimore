@@ -71,7 +71,6 @@ func (a *ECSServiceAccumulator) Accumulate(ctx context.Context, populator *ENIPo
 		inputs[key].Services = append(inputs[key].Services, serviceARN.String())
 	}
 	eg, ctx := errgroup.WithContext(ctx)
-	association := &securityGroupAssociation{}
 	for _, i := range inputs {
 		input := i
 		eg.Go(func() error {
@@ -87,18 +86,13 @@ func (a *ECSServiceAccumulator) Accumulate(ctx context.Context, populator *ENIPo
 				if err != nil {
 					return fmt.Errorf("[BUG] invalid ARN: %w", err)
 				}
-				association.add(svcARN, svc.NetworkConfiguration.AwsvpcConfiguration.SecurityGroups...)
+				populator.RequestSecurityGroups(svcARN, svc.NetworkConfiguration.AwsvpcConfiguration.SecurityGroups...)
 			}
 			return nil
 		})
 	}
 	if err := eg.Wait(); err != nil {
 		return err
-	}
-	if association.hasAny() {
-		if err := populator.PopulateWithSecurityGroups(ctx, association); err != nil {
-			return err
-		}
 	}
 	return nil
 }

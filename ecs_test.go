@@ -83,7 +83,10 @@ func TestECSServiceAccumulate_ok(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	got := p.Result()
+	got, err := p.Run(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
 	want := &Result{Results: map[string]ResultFragment{
 		serviceARN1: {
 			NetworkInterfaces: []NetworkInterface{
@@ -117,7 +120,10 @@ func TestECSServiceAccumulate_notVPC(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	got := p.Result()
+	got, err := p.Run(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if diff := diffResult(t, got, &Result{Results: map[string]ResultFragment{}}); diff != "" {
 		t.Errorf("Result (-got, +want):\n%s", diff)
 	}
@@ -143,7 +149,10 @@ func TestECSServiceAccumulate_noARNs(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			got := p.Result()
+			got, err := p.Run(ctx)
+			if err != nil {
+				t.Fatal(err)
+			}
 			if diff := diffResult(t, got, &Result{Results: map[string]ResultFragment{}}); diff != "" {
 				t.Errorf("Result (-got, +want):\n%s", diff)
 			}

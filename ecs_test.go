@@ -7,8 +7,8 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/aereal/enimore/internal/mocks"
-	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aereal/enimore/internal/aws"
+	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/aws/arn"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
@@ -26,7 +26,7 @@ func TestECSServiceAccumulate_ok(t *testing.T) {
 	securityGroupIDs2 := []string{"sg-8765432109", "sg-7654321098"}
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	mlc := mocks.NewMockECSClient(ctrl)
+	mlc := aws.NewMockECSClient(ctrl)
 	mlc.EXPECT().DescribeServices(gomock.Any(), gomock.Any()).Times(2).DoAndReturn(func(ctx context.Context, input *ecs.DescribeServicesInput, opts ...func(*ecs.Options)) (*ecs.DescribeServicesOutput, error) {
 		k := strings.Join(input.Services, "")
 		switch k {
@@ -61,18 +61,18 @@ func TestECSServiceAccumulate_ok(t *testing.T) {
 			return nil, nil
 		}
 	})
-	mec := mocks.NewMockEC2Client(ctrl)
+	mec := aws.NewMockEC2Client(ctrl)
 	mec.EXPECT().DescribeNetworkInterfaces(gomock.Any(), gomock.Any()).Times(1).Return(&ec2.DescribeNetworkInterfacesOutput{
 		NetworkInterfaces: []ec2types.NetworkInterface{
 			{
-				NetworkInterfaceId: aws.String("eni-12345"),
+				NetworkInterfaceId: awssdk.String("eni-12345"),
 				Groups:             []ec2types.GroupIdentifier{{GroupId: &securityGroupIDs1[0]}, {GroupId: &securityGroupIDs1[1]}, {GroupId: &securityGroupIDs2[0]}, {GroupId: &securityGroupIDs2[1]}},
-				AvailabilityZone:   aws.String("us-east-1a"),
+				AvailabilityZone:   awssdk.String("us-east-1a"),
 			},
 			{
-				NetworkInterfaceId: aws.String("eni-67890"),
+				NetworkInterfaceId: awssdk.String("eni-67890"),
 				Groups:             []ec2types.GroupIdentifier{{GroupId: &securityGroupIDs2[0]}, {GroupId: &securityGroupIDs2[1]}},
-				AvailabilityZone:   aws.String("us-east-1b"),
+				AvailabilityZone:   awssdk.String("us-east-1b"),
 			},
 		},
 	}, nil)
@@ -105,11 +105,11 @@ func TestECSServiceAccumulate_notVPC(t *testing.T) {
 	serviceARN := "arn:aws:ecs:us-east-1:123456789012:service/my-cluster/no-vpc"
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	mlc := mocks.NewMockECSClient(ctrl)
+	mlc := aws.NewMockECSClient(ctrl)
 	mlc.EXPECT().DescribeServices(gomock.Any(), gomock.Any()).Times(1).Return(&ecs.DescribeServicesOutput{
 		Services: []ecstypes.Service{{ServiceArn: &serviceARN}},
 	}, nil)
-	mec := mocks.NewMockEC2Client(ctrl)
+	mec := aws.NewMockEC2Client(ctrl)
 	p := NewENIPopulator(mec)
 	a := NewECSServiceAccumulator(mlc, []arn.ARN{mustParseARN(serviceARN)})
 	ctx := context.Background()
@@ -134,8 +134,8 @@ func TestECSServiceAccumulate_noARNs(t *testing.T) {
 		t.Run(fmt.Sprintf("targetARNs=%#v", targetARNs), func(t *testing.T) {
 			ctrl := gomock.NewController(t)
 			defer ctrl.Finish()
-			mcc := mocks.NewMockECSClient(ctrl)
-			mec := mocks.NewMockEC2Client(ctrl)
+			mcc := aws.NewMockECSClient(ctrl)
+			mec := aws.NewMockEC2Client(ctrl)
 			p := NewENIPopulator(mec)
 			a := NewECSServiceAccumulator(mcc, targetARNs)
 			ctx := context.Background()

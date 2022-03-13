@@ -1,22 +1,17 @@
-//go:generate go run github.com/golang/mock/mockgen -package mocks -destination ./internal/mocks/mock_lambda.go github.com/aereal/enimore LambdaClient
-
 package enimore
 
 import (
 	"context"
 	"fmt"
 
+	"github.com/aereal/enimore/internal/aws"
 	arnparser "github.com/aws/aws-sdk-go-v2/aws/arn"
 	"github.com/aws/aws-sdk-go-v2/service/lambda"
 )
 
 var serviceLambda = "lambda"
 
-type LambdaClient interface {
-	ListFunctions(ctx context.Context, params *lambda.ListFunctionsInput, optFns ...func(*lambda.Options)) (*lambda.ListFunctionsOutput, error)
-}
-
-func NewLambdaFunctionAccumulator(client LambdaClient, arns []arnparser.ARN) *LambdaFunctionAccumulator {
+func NewLambdaFunctionAccumulator(client aws.LambdaClient, arns []arnparser.ARN) *LambdaFunctionAccumulator {
 	accum := &LambdaFunctionAccumulator{client: client}
 	for _, arn := range arns {
 		if arn.Service == serviceLambda {
@@ -28,7 +23,7 @@ func NewLambdaFunctionAccumulator(client LambdaClient, arns []arnparser.ARN) *La
 
 type LambdaFunctionAccumulator struct {
 	arns   []arnparser.ARN
-	client LambdaClient
+	client aws.LambdaClient
 }
 
 var _ Accumulator = &LambdaFunctionAccumulator{}

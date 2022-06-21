@@ -14,6 +14,8 @@ jobs:
       - name: lint
         uses: reviewdog/action-golangci-lint@v2
   test:
+    outputs:
+      coverage_id: ${{ steps.coverage_id.outputs.value }}
     strategy:
       matrix:
         go_version:
@@ -38,4 +40,29 @@ jobs:
             go-${{ hashFiles('**/go.sum') }}
             go-
       - name: test
-        run: go test -v -race -cover -covermode=atomic ./...
+        run: go test -v -race -coverprofile=cover.out ./...
+      - id: coverage_id
+        if: matrix.os == 'ubuntu-latest'
+        env:
+          _value: go-coverage-${{ github.run_id }}-${{ github.run_attempt }}
+        run: echo "::set-output name=value::${_value}"
+      - uses: actions/upload-artifact@v3
+        if: matrix.os == 'ubuntu-latest'
+        with:
+          name: ${{ steps.coverage_id.outputs.value }}
+          path: ./cover.out
+          if-no-files-found: error
+  report-coverage:
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+      pull-requests: write
+    needs:
+      - test
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/download-artifact@v3
+        with:
+          name: ${{ needs.test.outputs.coverage_id }}
+      - uses: k1LoW/octocov-action@v0

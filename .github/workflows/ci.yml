@@ -21,6 +21,7 @@ jobs:
           - 1.15.x
           - 1.16.x
           - 1.17.x
+          - 1.18.x
         os:
           - ubuntu-latest
     runs-on: ${{ matrix.os }}
@@ -32,8 +33,9 @@ jobs:
       - uses: actions/cache@v3
         with:
           path: ~/go/pkg/mod
-          key: ${{ runner.os }}-go-${{ matrix.go_version }}-${{ hashFiles('**/go.sum') }}
+          key: go-${{ hashFiles('**/go.sum') }}
           restore-keys: |
-            ${{ runner.os }}-go-${{ matrix.go_version }}
+            go-${{ hashFiles('**/go.sum') }}
+            go-
       - name: test
         run: go test -v -race -cover -covermode=atomic ./...

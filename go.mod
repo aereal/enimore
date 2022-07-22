@@ -10,5 +10,5 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/lambda v1.23.2
 	github.com/golang/mock v1.6.0
 	github.com/google/go-cmp v0.5.8
-	golang.org/x/sync v0.0.0-20220601150217-0de741cfad7f
+	golang.org/x/sync v0.0.0-20220722155255-886fb9371eb4
 )

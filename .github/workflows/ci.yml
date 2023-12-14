@@ -43,7 +43,7 @@ jobs:
         env:
           _value: go-coverage-${{ github.run_id }}-${{ github.run_attempt }}
         run: echo "::set-output name=value::${_value}"
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         if: matrix.os == 'ubuntu-latest'
         with:
           name: ${{ steps.coverage_id.outputs.value }}

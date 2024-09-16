@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/aereal/enimore/internal/mocks"
-	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aereal/enimore/internal/aws"
+	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/aws/arn"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
@@ -20,7 +20,7 @@ func TestLambdaFunctionAccumulate_ok(t *testing.T) {
 	securityGroupIDs := []string{"sg-1234567890", "sg-987654321"}
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	mlc := mocks.NewMockLambdaClient(ctrl)
+	mlc := aws.NewMockLambdaClient(ctrl)
 	mlc.EXPECT().ListFunctions(gomock.Any(), gomock.Any()).Times(1).Return(&lambda.ListFunctionsOutput{
 		Functions: []lambdatypes.FunctionConfiguration{
 			{
@@ -31,13 +31,13 @@ func TestLambdaFunctionAccumulate_ok(t *testing.T) {
 			},
 		},
 	}, nil)
-	mec := mocks.NewMockEC2Client(ctrl)
+	mec := aws.NewMockEC2Client(ctrl)
 	mec.EXPECT().DescribeNetworkInterfaces(gomock.Any(), gomock.Any()).Times(1).Return(&ec2.DescribeNetworkInterfacesOutput{
 		NetworkInterfaces: []ec2types.NetworkInterface{
 			{
-				NetworkInterfaceId: aws.String("eni-12345"),
+				NetworkInterfaceId: awssdk.String("eni-12345"),
 				Groups:             []ec2types.GroupIdentifier{{GroupId: &securityGroupIDs[0]}, {GroupId: &securityGroupIDs[1]}},
-				AvailabilityZone:   aws.String("us-east-1a"),
+				AvailabilityZone:   awssdk.String("us-east-1a"),
 			},
 		},
 	}, nil)
@@ -54,11 +54,11 @@ func TestLambdaFunctionAccumulate_notVPC(t *testing.T) {
 	fnARN := "arn:aws:lambda:us-east-1:123456789012:function/no-vpc"
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	mlc := mocks.NewMockLambdaClient(ctrl)
+	mlc := aws.NewMockLambdaClient(ctrl)
 	mlc.EXPECT().ListFunctions(gomock.Any(), gomock.Any()).Times(1).Return(&lambda.ListFunctionsOutput{
 		Functions: []lambdatypes.FunctionConfiguration{{FunctionArn: &fnARN}},
 	}, nil)
-	mec := mocks.NewMockEC2Client(ctrl)
+	mec := aws.NewMockEC2Client(ctrl)
 	p := NewENIPopulator(mec)
 	a := NewLambdaFunctionAccumulator(mlc, []arn.ARN{mustParseARN(fnARN)})
 	ctx := context.Background()
@@ -79,8 +79,8 @@ func TestLambdaFunctionAccumulate_noARNs(t *testing.T) {
 		t.Run(fmt.Sprintf("targetARNs=%#v", targetARNs), func(t *testing.T) {
 			ctrl := gomock.NewController(t)
 			defer ctrl.Finish()
-			mlc := mocks.NewMockLambdaClient(ctrl)
-			mec := mocks.NewMockEC2Client(ctrl)
+			mlc := aws.NewMockLambdaClient(ctrl)
+			mec := aws.NewMockEC2Client(ctrl)
 			p := NewENIPopulator(mec)
 			a := NewLambdaFunctionAccumulator(mlc, targetARNs)
 			ctx := context.Background()
